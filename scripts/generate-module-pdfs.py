@@ -1,0 +1,472 @@
+from pathlib import Path
+from xml.sax.saxutils import escape
+
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import cm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.platypus import (
+    PageBreak,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
+
+
+ROOT = Path(__file__).resolve().parents[1]
+OUT_DIR = ROOT / "public" / "pdfs"
+FONT_PATH = Path("/Library/Fonts/Arial Unicode.ttf")
+if not FONT_PATH.exists():
+    FONT_PATH = Path("/System/Library/Fonts/Supplemental/Arial Unicode.ttf")
+
+pdfmetrics.registerFont(TTFont("Planif", str(FONT_PATH)))
+pdfmetrics.registerFont(TTFont("Planif-Bold", str(FONT_PATH)))
+
+PAGE_WIDTH, PAGE_HEIGHT = A4
+MARGIN_X = 1.5 * cm
+TEXT_WIDTH = PAGE_WIDTH - 2 * MARGIN_X
+
+
+styles = getSampleStyleSheet()
+styles.add(
+    ParagraphStyle(
+        name="ModuleTitle",
+        fontName="Planif-Bold",
+        fontSize=26,
+        leading=31,
+        textColor=colors.HexColor("#030712"),
+        spaceAfter=8,
+    )
+)
+styles.add(
+    ParagraphStyle(
+        name="SectionTitle",
+        fontName="Planif-Bold",
+        fontSize=15,
+        leading=19,
+        textColor=colors.HexColor("#0A2342"),
+        spaceBefore=12,
+        spaceAfter=8,
+    )
+)
+styles.add(
+    ParagraphStyle(
+        name="Body",
+        fontName="Planif",
+        fontSize=9.5,
+        leading=14,
+        textColor=colors.HexColor("#111827"),
+    )
+)
+styles.add(
+    ParagraphStyle(
+        name="Small",
+        fontName="Planif",
+        fontSize=8.2,
+        leading=11,
+        textColor=colors.HexColor("#111827"),
+    )
+)
+styles.add(
+    ParagraphStyle(
+        name="PdfBullet",
+        fontName="Planif",
+        fontSize=9.2,
+        leading=13,
+        leftIndent=12,
+        firstLineIndent=-8,
+        textColor=colors.HexColor("#111827"),
+    )
+)
+styles.add(
+    ParagraphStyle(
+        name="TableCell",
+        fontName="Planif",
+        fontSize=7.8,
+        leading=10.2,
+        textColor=colors.HexColor("#111827"),
+    )
+)
+styles.add(
+    ParagraphStyle(
+        name="TableHead",
+        fontName="Planif-Bold",
+        fontSize=7.8,
+        leading=10.2,
+        alignment=TA_CENTER,
+        textColor=colors.white,
+    )
+)
+
+
+def p(text, style="Body"):
+    return Paragraph(escape(str(text)).replace("\n", "<br/>"), styles[style])
+
+
+def bullet(text):
+    return p(f"• {text}", "PdfBullet")
+
+
+def section(title):
+    return p(title, "SectionTitle")
+
+
+def para_table(rows, widths=None, header=True, dark=False):
+    data = []
+    for r, row in enumerate(rows):
+      style_name = "TableHead" if header and r == 0 else "TableCell"
+      data.append([p(cell, style_name) for cell in row])
+
+    if widths is None:
+        widths = [TEXT_WIDTH / len(rows[0])] * len(rows[0])
+
+    table = Table(data, colWidths=widths, repeatRows=1 if header else 0, hAlign="LEFT")
+    head_color = colors.HexColor("#0A2342") if not dark else colors.HexColor("#030712")
+    body_color = colors.HexColor("#FAF8F3") if not dark else colors.HexColor("#F3F4F6")
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), head_color),
+                ("BACKGROUND", (0, 1), (-1, -1), body_color),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#D1D5DB")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    return table
+
+
+def callout(title, lines, bg="#F7F4EF"):
+    rows = [[p(title, "TableHead")], [p("\n".join(lines), "Small")]]
+    table = Table(rows, colWidths=[TEXT_WIDTH], hAlign="LEFT")
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#030712")),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor(bg)),
+                ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#D1D5DB")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 7),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+            ]
+        )
+    )
+    return table
+
+
+def header_footer(canvas, doc, title):
+    canvas.saveState()
+    canvas.setFont("Planif", 7.5)
+    canvas.setFillColor(colors.HexColor("#6B7280"))
+    canvas.drawString(MARGIN_X, 0.9 * cm, "Planif&Co — Master 1 MSI — Planification & Contrôle")
+    canvas.drawRightString(PAGE_WIDTH - MARGIN_X, 0.9 * cm, f"{title} · page {doc.page}")
+    canvas.restoreState()
+
+
+def build_pdf(filename, title, blocks):
+    doc = SimpleDocTemplate(
+        str(OUT_DIR / filename),
+        pagesize=A4,
+        leftMargin=MARGIN_X,
+        rightMargin=MARGIN_X,
+        topMargin=1.3 * cm,
+        bottomMargin=1.4 * cm,
+        title=title,
+        author="Planif&Co",
+    )
+    story = [p("Planif&Co", "Small"), p(title, "ModuleTitle")]
+    for block in blocks:
+        story.extend(block)
+    doc.build(story, onFirstPage=lambda c, d: header_footer(c, d, title), onLaterPages=lambda c, d: header_footer(c, d, title))
+
+
+def concept_grid(items):
+    rows = []
+    for i in range(0, len(items), 2):
+        left = items[i]
+        right = items[i + 1] if i + 1 < len(items) else ("", "")
+        rows.append([
+            p(f"<b>{left[0]}</b><br/>{left[1]}", "Small"),
+            p(f"<b>{right[0]}</b><br/>{right[1]}", "Small") if right[0] else "",
+        ])
+    table = Table(rows, colWidths=[TEXT_WIDTH / 2 - 4, TEXT_WIDTH / 2 - 4], hAlign="LEFT")
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FAF8F3")),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#E5E7EB")),
+                ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E5E7EB")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ]
+        )
+    )
+    return table
+
+
+def diagnostic_pdf():
+    blocks = [
+        [section("Fiche technique"), p("La matrice BCG est un outil d’analyse stratégique développé par le Boston Consulting Group. Elle permet d’optimiser la gestion de portefeuille d’activités d’une entreprise en positionnant chaque Domaine d’Activité Stratégique (DAS) selon leur position concurrentielle et l’attractivité de leur marché."), Spacer(1, 8)],
+        [section("Les 4 quadrants de la matrice BCG")]
+        + [bullet(x) for x in [
+            "Vedette : leader sur un marché en forte croissance. Génère et consomme beaucoup de liquidités. Conseil : investir pour maintenir la position dominante, potentiel futur vache à lait.",
+            "Vache à lait : leader sur un marché mature. Génère des excédents de trésorerie avec peu d’investissements. Conseil : maintenir la position et réinvestir les flux dans les vedettes et dilemmes.",
+            "Dilemme : challenger sur un marché en forte croissance. Faible rentabilité malgré la dynamique du marché. Conseil : investir massivement pour gagner des parts ou se désengager si l’écart est trop grand.",
+            "Poid mort : challenger sur un marché à faible croissance. Rentabilité faible ou négative. Conseil : envisager le désengagement progressif ou maintenir si l’activité reste rentable.",
+        ]],
+        [section("Notions à maîtriser"), concept_grid([
+            ("Stratégie", "Définition d’objectifs de long terme, choix de politiques et allocation optimale des ressources."),
+            ("Taux de croissance du marché", "Axe vertical. Il mesure l’attractivité du marché."),
+            ("Part de marché relative", "Axe horizontal. Elle mesure la position concurrentielle de l’entreprise."),
+            ("Taille des cercles", "Proportionnelle à la contribution du DAS au chiffre d’affaires total."),
+        ])],
+        [section("Méthode et formules")]
+        + [bullet(x) for x in [
+            "TC = (CA(N) − CA(N−1)) / CA(N−1) × 100. Si TC > 1 : le marché devient plus attractif. Si TC < 1 : l’activité perd en dynamique.",
+            "PMR = CA du DAS de l’entreprise / CA du principal concurrent. Si PMR > 1 : leader. Si PMR < 1 : challenger.",
+            "Le DAS avec le CA le plus faible reçoit un cercle de diamètre D₀ = 1 cm (rayon R₀ = 0,5 cm).",
+            "S₀ = π × R₀² = π × (0,5)² ≈ 0,785 cm² ; S(DASi) = S₀ × [CA(DASi) / CA(DAS₀)] ; R = √(S / π) ; D = 2 × R.",
+        ]],
+        [section("Étapes"), *[bullet(x) for x in [
+            "Calculer le taux de croissance des DAS.",
+            "Calculer la part de marché relative des DAS.",
+            "Calculer la superficie des DAS.",
+            "Tracer la matrice BCG.",
+            "Ajuster l’axe médian de PMR à 1.",
+            "Ajuster l’axe médian de TC à la moyenne du marché, ici 10 %.",
+            "Placer les DAS sur la matrice BCG.",
+            "Commenter l’équilibre global et conseiller l’entreprise.",
+        ]]],
+        [PageBreak(), section("Exercice — groupe LUMEX"), p("Le groupe LUMEX, spécialisé dans l’éclairage professionnel et résidentiel, décompose son activité en trois Domaines d’Activité Stratégique (DAS). Le service stratégique a compilé les données suivantes pour les années N-1 et N (chiffres d’affaires en milliers d’euros). On retiendra un taux de croissance moyen de 10 % pour le marché de l’éclairage.")],
+        [para_table([
+            ["DAS / Année", "DAS 1 éclairage industriel", "DAS 2 éclairage résidentiel", "DAS 3 éclairage connecté"],
+            ["N-1", "48 000", "35 000", "15 000"],
+            ["N", "55 200", "36 750", "21 000"],
+        ], widths=[3.2*cm, 4.3*cm, 4.3*cm, 4.3*cm])],
+        [para_table([
+            ["Concurrent", "DAS 1", "DAS 2", "DAS 3"],
+            ["Alpha", "38 000", "50 000", "28 000"],
+            ["Beta", "45 000", "30 000", "12 000"],
+            ["Gamma", "25 000", "20 000", "6 000"],
+        ], widths=[4*cm, 4*cm, 4*cm, 4*cm])],
+        [section("Questions"), bullet("Réaliser la représentation matricielle du portefeuille d’activité du groupe LUMEX."), bullet("Analyser et commenter le portefeuille. Quelles recommandations stratégiques formulez-vous ?")],
+        [section("Correction"), para_table([
+            ["Calcul", "DAS 1", "DAS 2", "DAS 3"],
+            ["TC", "(55 200 − 48 000) / 48 000 × 100 = 15 %", "(36 750 − 35 000) / 35 000 × 100 = 5 %", "(21 000 − 15 000) / 15 000 × 100 = 40 %"],
+            ["Principal concurrent", "Beta : 45 000", "Alpha : 50 000", "Alpha : 28 000"],
+            ["PMR", "55 200 / 45 000 = 1,23 ; leader", "36 750 / 50 000 = 0,74 ; challenger", "21 000 / 28 000 = 0,75 ; challenger"],
+        ], widths=[2.7*cm, 4.8*cm, 4.8*cm, 4.8*cm], dark=True)],
+        [para_table([
+            ["Calcul", "DAS 1", "DAS 2", "DAS 3"],
+            ["Surface S", "0,785 × (55 200 / 21 000) = 2,064 cm²", "0,785 × (36 750 / 21 000) = 1,374 cm²", "π × (0,5)² = 0,785 cm²"],
+            ["Rayon R", "√(2,064 / π) = 0,81 cm", "√(1,374 / π) = 0,66 cm", "√(0,785 / π) = 0,50 cm"],
+            ["Diamètre D", "2 × 0,81 = 1,62 cm", "2 × 0,66 = 1,32 cm", "2 × 0,50 = 1,00 cm"],
+        ], widths=[2.7*cm, 4.8*cm, 4.8*cm, 4.8*cm], dark=True)],
+        [callout("Matrice BCG — lecture finale", [
+            "DAS 1 : Vedette — PMR = 1,23 ; TC = 15 %.",
+            "DAS 3 : Dilemme — PMR = 0,75 ; TC = 40 %.",
+            "DAS 2 : Poid mort — PMR = 0,74 ; TC = 5 %.",
+            "Aucun DAS en vache à lait : le portefeuille manque de génération de liquidités stables.",
+        ], "#EEF2FF")],
+        [section("Analyse et recommandations"), *[bullet(x) for x in [
+            "DAS 1 : investir pour conserver et renforcer la position de leader.",
+            "DAS 2 : évaluer la rentabilité réelle ; maintenir si elle est positive, sinon envisager un désengagement progressif.",
+            "DAS 3 : investir massivement pour rattraper Alpha et transformer ce DAS en vedette.",
+            "LUMEX doit investir dans les DAS 1 et 3 afin qu’ils prennent le relais de la génération de cash.",
+        ]]],
+        [section("Approfondissement"), *[bullet(x) for x in [
+            "Rentabilité économique : EBE / Actif total.",
+            "Rentabilité commerciale nette : Résultat net / CA HT.",
+            "Rentabilité financière : Résultat net / capitaux propres.",
+            "Capacité d’autofinancement : Résultat net + dotations aux amortissements.",
+        ]]],
+    ]
+    build_pdf("diagnostic-strategique.pdf", "Diagnostic stratégique — Matrice BCG", blocks)
+
+
+def budgets_pdf():
+    blocks = [
+        [section("Fiche technique"), p("Le budget est un ensemble de prévisions chiffrées qui organise les ventes, la production, les achats, les charges, la TVA, les encaissements, les décaissements et la trésorerie.")],
+        [section("Notions à maîtriser"), concept_grid([
+            ("Articulation budgétaire", "Organisation des budgets opérationnels et financiers."),
+            ("Budget de TVA", "TVA collectée − TVA déductible = TVA à décaisser."),
+            ("Encaissements", "Entrées d’argent : créances clients et ventes encaissées."),
+            ("Décaissements", "Sorties d’argent : dettes, achats, frais, TVA, investissements."),
+            ("Trésorerie finale", "Trésorerie initiale + encaissements − décaissements."),
+            ("Documents de synthèse", "Compte de résultat prévisionnel et bilan prévisionnel."),
+        ])],
+        [section("Méthode"), *[bullet(x) for x in [
+            "Prévoir les ventes et le chiffre d’affaires.",
+            "Construire les budgets de production, d’approvisionnement, d’administration et d’investissement.",
+            "Calculer la TVA collectée, la TVA déductible et la TVA à décaisser.",
+            "Établir les budgets d’encaissements et de décaissements.",
+            "Calculer la trésorerie finale.",
+        ]]],
+        [section("Formules"), *[bullet(x) for x in [
+            "TVA à décaisser = TVA collectée − TVA déductible.",
+            "Total encaissements = créances clients du bilan + encaissements sur ventes.",
+            "Total décaissements = dettes du bilan + dépenses de la période.",
+            "Trésorerie finale = trésorerie initiale + encaissements − décaissements.",
+        ]]],
+        [PageBreak(), section("Exercice"), p("Une entreprise prévoit son activité mensuelle et doit construire les principaux budgets : ventes, production, approvisionnements, TVA, encaissements, décaissements et trésorerie.")],
+        [para_table([
+            ["Élément", "Donnée", "Budget concerné"],
+            ["Ventes", "1 000 unités à 40 € HT ; TVA 20 % ; 70 % encaissé comptant", "Ventes / encaissements"],
+            ["Production", "Production uniforme de 1 060 unités ; charges fixes 4 000 €, MOD 5 000 €, amortissement 2 000 €", "Production"],
+            ["Matières premières", "12 720 € HT ; TVA 20 %", "Approvisionnements"],
+            ["Bilan initial", "Créances clients 8 000 € ; dettes fournisseurs 5 000 €", "Flux de trésorerie"],
+            ["Administration", "Frais administratifs 2 500 € HT ; TVA 20 %", "Charges"],
+            ["Investissement", "Achat machine 10 000 € HT ; TVA 20 %, payé comptant", "Investissement"],
+            ["Trésorerie initiale", "12 000 €", "Trésorerie"],
+        ], widths=[3.3*cm, 9.2*cm, 4*cm])],
+        [section("Correction"), *[bullet(x) for x in [
+            "Budget des ventes : CA HT = 1 000 × 40 = 40 000 €. TVA collectée = 8 000 €. CA TTC = 48 000 €.",
+            "Budget de production : total HT = 12 720 + 5 000 + 4 000 + 2 000 = 23 720 €. TVA sur frais de production = 800 €. Total TTC = 24 520 €.",
+            "Approvisionnements : TVA déductible = 12 720 × 20 % = 2 544 €. Achats TTC = 15 264 €.",
+            "Investissement : TVA déductible = 2 000 €. Investissement TTC payé comptant = 12 000 €.",
+            "Frais administratifs : TVA déductible = 500 €. Total TTC = 3 000 €.",
+            "Budget de TVA : TVA déductible totale = 2 544 + 800 + 2 000 + 500 = 5 844 €. TVA à décaisser = 8 000 − 5 844 = 2 156 €.",
+            "Encaissements : 48 000 × 70 % + 8 000 = 41 600 €.",
+            "Décaissements : 15 264 + 5 000 + 4 800 + 3 000 + 12 000 + 2 156 + 5 000 = 47 220 €.",
+            "Trésorerie finale : 12 000 + 41 600 − 47 220 = 6 380 €.",
+        ]]],
+        [callout("Conclusion", ["La trésorerie finale reste positive à 6 380 € malgré les dépenses de production, d’administration et d’investissement."], "#ECFDF5")],
+    ]
+    build_pdf("budgets-articulation-budgetaire.pdf", "Budgets & articulation budgétaire", blocks)
+
+
+def ecarts_pdf():
+    blocks = [
+        [section("Fiche technique"), p("Le contrôle budgétaire compare le prévisionnel et le réalisé afin d’identifier les causes des écarts et de proposer des actions correctives.")],
+        [section("Notions à maîtriser"), concept_grid([
+            ("Coût prévisionnel", "Coût estimé avant la période à partir du budget."),
+            ("Coût constaté", "Coût réellement observé à la fin de la période."),
+            ("Écart", "Différence entre réel et prévu ajusté."),
+            ("Gestion par exception", "On analyse en priorité les écarts significatifs."),
+            ("Écart favorable", "L’écart améliore le résultat ou diminue le coût."),
+            ("Écart défavorable", "L’écart dégrade le résultat ou augmente le coût."),
+        ])],
+        [section("Méthode et formules"), *[bullet(x) for x in [
+            "Norme élémentaire = quantité prévue / production prévue.",
+            "Quantité prévue ajustée = norme élémentaire × production réelle.",
+            "Écart sur prix = (prix réel − prix prévu) × quantité réelle.",
+            "Écart sur quantité = (quantité réelle − quantité prévue ajustée) × prix prévu.",
+            "Écart global = coût réel − coût prévu ajusté = écart sur prix + écart sur quantité.",
+        ]]],
+        [PageBreak(), section("Exercice"), p("Une entreprise produit des sacs et souhaite analyser l’écart entre la consommation prévue de matière première et la consommation réellement constatée.")],
+        [para_table([
+            ["Élément", "Donnée"],
+            ["Production prévue", "1 000 sacs"],
+            ["Consommation prévue", "500 kg de matière première"],
+            ["Prix standard", "8 € / kg"],
+            ["Production réelle", "1 100 sacs"],
+            ["Quantité réelle consommée", "540 kg"],
+            ["Prix réel", "8,50 € / kg"],
+        ], widths=[6*cm, 10*cm])],
+        [section("Correction"), *[bullet(x) for x in [
+            "Norme élémentaire = 500 / 1 000 = 0,5 kg par sac.",
+            "Quantité prévue ajustée = 0,5 × 1 100 = 550 kg.",
+            "Coût prévu ajusté = 550 × 8 = 4 400 €.",
+            "Coût réel = 540 × 8,50 = 4 590 €.",
+            "Écart global = 4 590 − 4 400 = +190 €, défavorable.",
+            "Écart sur prix = (8,50 − 8) × 540 = +270 €, défavorable.",
+            "Écart sur quantité = (540 − 550) × 8 = −80 €, favorable.",
+            "Vérification : 270 + (−80) = 190 €.",
+        ]]],
+        [para_table([
+            ["Élément", "Quantité réelle", "Prix réel", "Coût réel", "Quantité prévue ajustée", "Prix prévu", "Coût prévu", "Écart"],
+            ["Matière première", "540 kg", "8,50 €", "4 590 €", "550 kg", "8 €", "4 400 €", "+190 €"],
+        ], widths=[3.0*cm, 2.1*cm, 1.8*cm, 2.0*cm, 3.0*cm, 1.8*cm, 2.0*cm, 1.5*cm])],
+        [callout("Conclusion", ["L’écart global défavorable provient surtout de la hausse du prix d’achat, malgré une économie sur les quantités consommées. Une négociation fournisseur peut limiter les futurs dépassements."], "#FFF1D6")],
+    ]
+    build_pdf("controle-budgetaire-ecarts.pdf", "Contrôle budgétaire & écarts", blocks)
+
+
+def mpm_pdf():
+    blocks = [
+        [section("Fiche technique"), p("La méthode MPM permet de représenter un projet sous forme de réseau. Elle aide à visualiser l’ordre des tâches, la durée totale, les marges et les tâches critiques.")],
+        [section("Notions à maîtriser"), concept_grid([
+            ("Tâche", "Action à réaliser dans le projet, représentée par un sommet."),
+            ("Antériorité", "Une tâche doit être terminée avant qu’une autre commence."),
+            ("Date au plus tôt", "Première date à laquelle une tâche peut commencer."),
+            ("Date au plus tard", "Dernière date possible sans retarder le projet."),
+            ("Marge totale", "Retard maximum sans retarder la fin globale du projet."),
+            ("Chemin critique", "Suite de tâches sans marge ; tout retard retarde le projet."),
+        ])],
+        [section("Méthode"), *[bullet(x) for x in [
+            "Analyser les tâches antérieures.",
+            "Établir la matrice des niveaux.",
+            "Tracer le graphe MPM.",
+            "Calculer les dates au plus tôt.",
+            "Calculer les dates au plus tard.",
+            "Déterminer la durée minimale du projet.",
+            "Identifier le chemin critique.",
+            "Calculer les marges.",
+        ]]],
+        [section("Formules"), *[bullet(x) for x in [
+            "Date au plus tôt = max(DTO(i) + Durée(i)) ; i = tâches antécédentes.",
+            "Date au plus tard = min(DTA(j) − Durée(j)) ; j = tâches suivantes.",
+            "Marge totale = date au plus tard − date au plus tôt.",
+        ]]],
+        [PageBreak(), section("Exercice"), p("Un groupe doit préparer une présentation de projet. Les tâches, durées et antériorités sont les suivantes.")],
+        [para_table([
+            ["Tâche", "Description", "Durée", "Antécédents"],
+            ["A", "Analyser le besoin", "2 j", "-"],
+            ["B", "Rédiger le cahier des charges", "3 j", "A"],
+            ["C", "Choisir les outils", "2 j", "A"],
+            ["D", "Construire le prototype", "4 j", "B, C"],
+            ["E", "Tester la solution", "2 j", "D"],
+            ["F", "Présenter le projet", "1 j", "E"],
+        ], widths=[2*cm, 7*cm, 2.5*cm, 4*cm])],
+        [section("Correction"), para_table([
+            ["Tâche", "Date au plus tôt", "Date au plus tard", "Marge", "Statut"],
+            ["Début", "0", "0", "0", "Critique"],
+            ["A", "0", "0", "0", "Critique"],
+            ["B", "2", "2", "0", "Critique"],
+            ["C", "2", "3", "1", "Avec marge"],
+            ["D", "5", "5", "0", "Critique"],
+            ["E", "9", "9", "0", "Critique"],
+            ["F", "11", "11", "0", "Critique"],
+            ["Fin", "12", "12", "0", "Critique"],
+        ], widths=[3*cm, 3*cm, 3*cm, 2.5*cm, 4*cm])],
+        [callout("Réseau final", [
+            "Début → A → B → D → E → F → Fin",
+            "Branche alternative : A → C → D.",
+            "Chemin critique : A → B → D → E → F.",
+            "Durée totale du projet : 12 jours.",
+        ], "#EEF2FF")],
+        [section("À retenir"), *[bullet(x) for x in [
+            "Le réseau montre l’ordre logique des tâches.",
+            "Une marge nulle signale une tâche critique.",
+            "Un retard sur le chemin critique retarde tout le projet.",
+            "Erreurs fréquentes : ne pas ajouter une tâche Début et une tâche Fin comme tâches du projet ; calculer les dates au plus tard dans le mauvais sens.",
+        ]]],
+    ]
+    build_pdf("planification-projet-mpm.pdf", "Planification de projet / MPM", blocks)
+
+
+def main():
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    diagnostic_pdf()
+    budgets_pdf()
+    ecarts_pdf()
+    mpm_pdf()
+    print(f"Generated PDFs in {OUT_DIR}")
+
+
+if __name__ == "__main__":
+    main()
