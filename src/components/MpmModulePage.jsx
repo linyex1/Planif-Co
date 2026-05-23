@@ -10,13 +10,14 @@ import {
   FileText,
   Flag,
   Network,
-  Play,
   Route,
   Sparkles,
   Table2,
   Target,
 } from 'lucide-react';
 import CorrectionReveal from './CorrectionReveal.jsx';
+
+const MPM_VIDEO_EMBED_URL = 'https://www.youtube.com/embed/9TXlkfU-IJg';
 
 const objectives = [
   'Décomposer un projet en tâches simples et mesurables.',
@@ -364,7 +365,7 @@ function MpmModulePage({ onBackHome, onChoosePremium }) {
               <div className="flex flex-wrap gap-2">
                 <ModuleBadge>Module gratuit</ModuleBadge>
                 <ModuleBadge>Fiche complète</ModuleBadge>
-                <ModuleBadge>Vidéo à venir</ModuleBadge>
+                <ModuleBadge>Mini-vidéo</ModuleBadge>
                 <ModuleBadge>Exercice corrigé</ModuleBadge>
               </div>
               <h1 className="mt-7 max-w-4xl text-balance text-5xl font-black leading-[0.95] tracking-tight text-[#030712] sm:text-6xl lg:text-7xl">
@@ -483,21 +484,15 @@ function MpmModulePage({ onBackHome, onChoosePremium }) {
       <section className="px-4 py-16 sm:px-6 lg:py-24">
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
           <div className="rounded-[2rem] border border-black/10 bg-white p-5 shadow-[0_22px_70px_rgba(3,7,18,0.10)]">
-            <div className="aspect-video rounded-[1.5rem] bg-[linear-gradient(145deg,#0A2342,#030712_55%,#D7FF4F)] p-5">
-              <div className="flex h-full flex-col justify-between rounded-[1.25rem] border border-white/15 bg-black/25 p-5 text-white backdrop-blur">
-                <span className="w-fit rounded-full bg-white/10 px-3 py-1 text-xs font-black">
-                  Vidéo bientôt intégrée
-                </span>
-                <div className="grid place-items-center">
-                  <div className="grid size-20 place-items-center rounded-full bg-white text-[#030712] shadow-2xl">
-                    <Play size={30} fill="currentColor" />
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-white/60">Durée prévue : 3 à 4 minutes</p>
-                  <h2 className="mt-1 text-2xl font-black">Comprendre le réseau MPM sans se perdre</h2>
-                </div>
-              </div>
+            <div className="overflow-hidden rounded-[1.5rem] bg-[#030712]">
+              <iframe
+                className="aspect-video w-full"
+                src={MPM_VIDEO_EMBED_URL}
+                title="Comprendre le réseau MPM sans se perdre"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              />
             </div>
           </div>
           <div>
@@ -506,11 +501,11 @@ function MpmModulePage({ onBackHome, onChoosePremium }) {
               Mini-vidéo
             </span>
             <h2 className="mt-6 text-balance text-4xl font-black leading-tight tracking-tight text-[#030712] sm:text-5xl">
-              La vidéo viendra compléter la fiche.
+              Regarder la mini-vidéo MPM.
             </h2>
             <p className="mt-5 text-lg leading-8 text-[#6B7280]">
-              Pour l’instant, ce bloc sert d’emplacement propre. Quand la vidéo sera prête, elle
-              pourra être intégrée ici avec un lecteur ou un lien privé.
+              Cette vidéo complète la fiche gratuite pour comprendre le réseau MPM, les dates au
+              plus tôt et au plus tard, les marges et le chemin critique.
             </p>
           </div>
         </div>

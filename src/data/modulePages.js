@@ -29,7 +29,7 @@ export const modulePages = {
     accent: '#D8F3FF',
     darkAccent: '#0A2342',
     icon: BrainCircuit,
-    badges: ['Fiche complète', 'Mini-vidéo à venir', 'Cas corrigé', 'Matrice BCG'],
+    badges: ['Fiche complète', 'Mini-vidéo', 'Cas corrigé', 'Matrice BCG'],
     pdfPath: '/pdfs/diagnostic-strategique.pdf',
     objectivesGridClass: 'md:grid-cols-2 xl:grid-cols-4',
     objectives: [
@@ -127,6 +127,7 @@ export const modulePages = {
       ],
     },
     videoTitle: 'Construire une matrice BCG en 4 minutes',
+    videoEmbedUrl: 'https://www.youtube.com/embed/7azfWHQmZhE',
     videoDescription:
       'Cette vidéo expliquera comment calculer le taux de croissance, la part de marché relative, la taille des cercles et interpréter les quadrants.',
     exerciseTitle: 'Cas corrigé : matrice BCG du groupe LUMEX',
@@ -238,7 +239,7 @@ export const modulePages = {
     accent: '#D7FF4F',
     darkAccent: '#0A2342',
     icon: BarChart3,
-    badges: ['Fiche complète', 'Mini-vidéo à venir', 'Exercice corrigé', 'TVA & trésorerie'],
+    badges: ['Fiche complète', 'Mini-vidéo', 'Exercice corrigé', 'TVA & trésorerie'],
     pdfPath: '/pdfs/budgets-articulation-budgetaire.pdf',
     objectives: [
       'Comprendre la logique de construction des différents budgets.',
@@ -317,6 +318,7 @@ export const modulePages = {
       },
     ],
     videoTitle: 'Comprendre l’articulation budgétaire en 4 minutes',
+    videoEmbedUrl: 'https://www.youtube.com/embed/DCdF3vntR9s',
     videoDescription:
       'Cette vidéo montrera comment passer des budgets opérationnels au budget de TVA, aux flux de trésorerie et aux documents prévisionnels.',
     exerciseTitle: 'Cas corrigé : établir les budgets et la trésorerie',
@@ -371,7 +373,7 @@ export const modulePages = {
     accent: '#FFE7EB',
     darkAccent: '#D72638',
     icon: Calculator,
-    badges: ['Fiche complète', 'Mini-vidéo à venir', 'Exercice corrigé', 'Pilotage'],
+    badges: ['Fiche complète', 'Mini-vidéo', 'Exercice corrigé', 'Pilotage'],
     pdfPath: '/pdfs/controle-budgetaire-ecarts.pdf',
     objectives: [
       'Comprendre le calcul et l’analyse des écarts budgétaires.',
@@ -472,6 +474,7 @@ export const modulePages = {
       },
     ],
     videoTitle: 'Analyser un écart sans se perdre dans les calculs',
+    videoEmbedUrl: 'https://www.youtube.com/embed/kKxAIfulHn0',
     videoDescription:
       'Cette vidéo expliquera comment ajuster les quantités prévues, calculer les écarts sur prix et quantité, puis interpréter l’écart global.',
     exerciseTitle: 'Cas corrigé : analyser un écart sur matière',
