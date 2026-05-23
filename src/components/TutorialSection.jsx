@@ -1,4 +1,4 @@
-import { ArrowUpRight, CheckCircle2, Download } from 'lucide-react';
+import { CheckCircle2, Download } from 'lucide-react';
 
 const tutorialItems = [
   'Utiliser la formule gratuite pour ouvrir le module MPM et sa fiche complète.',
@@ -18,20 +18,14 @@ function TutorialSection() {
             Un tutoriel simple pour utiliser les deux formules.
           </h2>
           <p className="mt-6 max-w-xl text-lg leading-8 text-[#6B7280]">
-            Une section prête pour le document demandé : elle pourra accueillir un PDF ou une
-            page détaillée quand le parcours sera finalisé.
+            Télécharge le guide PDF pour comprendre comment utiliser la formule gratuite, passer
+            à Premium et accéder aux cours, fiches et exercices.
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
             <a
-              href="#"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#030712] px-6 py-4 font-black text-white transition hover:-translate-y-1"
-            >
-              Voir le tutoriel
-              <ArrowUpRight size={18} />
-            </a>
-            <a
-              href="#"
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-black/10 bg-white px-6 py-4 font-black text-[#030712] transition hover:-translate-y-1 hover:border-[#030712]"
+              href="/pdfs/tutoriel-planifco.pdf"
+              download
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#030712] px-6 py-4 font-black text-white transition hover:-translate-y-1 hover:bg-[#0A2342]"
             >
               Télécharger le tutoriel PDF
               <Download size={18} />
