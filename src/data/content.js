@@ -17,7 +17,7 @@ import {
 export const navLinks = [
   { label: 'Accueil', href: '#accueil' },
   { label: 'Cours', href: '#cours' },
-  { label: 'Exercices', href: '#exercices' },
+  { label: 'Fiche gratuite', href: '#exercices' },
   { label: 'Tarifs', href: '#tarifs' },
   { label: 'Tutoriel', href: '#tutoriel' },
 ];

@@ -17,6 +17,8 @@ import TutorialSection from './components/TutorialSection.jsx';
 import { premiumProduct } from './data/content.js';
 import { modulePages } from './data/modulePages.js';
 
+const PREMIUM_ACCESS_KEY = 'planifco-premium-access';
+
 function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -26,6 +28,14 @@ function App() {
   const [cartItem, setCartItem] = useState(null);
   const [orderNumber, setOrderNumber] = useState('');
   const [activeModuleId, setActiveModuleId] = useState(null);
+  const [premiumUnlocked, setPremiumUnlocked] = useState(() => {
+    return window.localStorage.getItem(PREMIUM_ACCESS_KEY) === 'unlocked';
+  });
+
+  const unlockPremiumAccess = () => {
+    window.localStorage.setItem(PREMIUM_ACCESS_KEY, 'unlocked');
+    setPremiumUnlocked(true);
+  };
 
   const navigateHome = (hash = '#accueil') => {
     setView('home');
@@ -56,6 +66,11 @@ function App() {
   };
 
   const openCourseModule = (moduleId) => {
+    if (!premiumUnlocked) {
+      navigateHome('#tarifs');
+      return;
+    }
+
     setActiveModuleId(moduleId);
     setView('course-module');
     scrollToTop();
@@ -73,6 +88,7 @@ function App() {
 
   const submitOrder = () => {
     setOrderNumber(`PC-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`);
+    unlockPremiumAccess();
     setCartItem(null);
     setView('success');
     scrollToTop();
@@ -126,8 +142,18 @@ function App() {
       <main>
         <Hero onStartFree={openMpmModule} />
         <DarkIntroSection />
-        <ModulesSection onOpenModule={openCourseModule} />
-        <PricingSection onChoosePremium={addPremiumToCart} onStartFree={openMpmModule} />
+        <ModulesSection
+          premiumUnlocked={premiumUnlocked}
+          onOpenModule={openCourseModule}
+          onChoosePremium={addPremiumToCart}
+          onUnlockPremiumDemo={unlockPremiumAccess}
+        />
+        <PricingSection
+          premiumUnlocked={premiumUnlocked}
+          onChoosePremium={addPremiumToCart}
+          onStartFree={openMpmModule}
+          onViewCourses={() => navigateHome('#cours')}
+        />
         <StudentJourney />
         <MpmFocus onOpenModule={openMpmModule} />
         <TutorialSection />

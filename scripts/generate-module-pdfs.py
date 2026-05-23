@@ -1,3 +1,5 @@
+import math
+import re
 from pathlib import Path
 from xml.sax.saxutils import escape
 
@@ -15,6 +17,7 @@ from reportlab.platypus import (
     Spacer,
     Table,
     TableStyle,
+    Flowable,
 )
 
 
@@ -104,8 +107,16 @@ styles.add(
 )
 
 
+def clean_text(text):
+    text = str(text)
+    text = re.sub(r"<br\s*/?>", "\n", text)
+    text = re.sub(r"</?(b|strong|em|i|span|sup|sub)[^>]*>", "", text)
+    text = re.sub(r"<[^>]+>", "", text)
+    return text
+
+
 def p(text, style="Body"):
-    return Paragraph(escape(str(text)).replace("\n", "<br/>"), styles[style])
+    return Paragraph(escape(clean_text(text)).replace("\n", "<br/>"), styles[style])
 
 
 def bullet(text):
@@ -197,8 +208,8 @@ def concept_grid(items):
         left = items[i]
         right = items[i + 1] if i + 1 < len(items) else ("", "")
         rows.append([
-            p(f"<b>{left[0]}</b><br/>{left[1]}", "Small"),
-            p(f"<b>{right[0]}</b><br/>{right[1]}", "Small") if right[0] else "",
+            p(f"{left[0]}\n{left[1]}", "Small"),
+            p(f"{right[0]}\n{right[1]}", "Small") if right[0] else "",
         ])
     table = Table(rows, colWidths=[TEXT_WIDTH / 2 - 4, TEXT_WIDTH / 2 - 4], hAlign="LEFT")
     table.setStyle(
@@ -216,6 +227,245 @@ def concept_grid(items):
         )
     )
     return table
+
+
+class BudgetFlowFlowable(Flowable):
+    def __init__(self, width=TEXT_WIDTH, height=4.5 * cm):
+        super().__init__()
+        self.width = width
+        self.height = height
+
+    def wrap(self, availWidth, availHeight):
+        return self.width, self.height
+
+    def draw(self):
+        c = self.canv
+        c.saveState()
+        c.setFillColor(colors.HexColor("#030712"))
+        c.roundRect(0, 0, self.width, self.height, 18, stroke=0, fill=1)
+        items = [
+            ("Ventes", "#D7FF4F"),
+            ("Production", "#D8F3FF"),
+            ("Achats", "#FFFFFF"),
+            ("TVA", "#A7A5FF"),
+            ("Trésorerie", "#D7FF4F"),
+        ]
+        gap = 9
+        box_w = (self.width - gap * (len(items) + 1)) / len(items)
+        y = self.height / 2 - 18
+        for i, (label, color) in enumerate(items):
+            x = gap + i * (box_w + gap)
+            c.setFillColor(colors.HexColor(color))
+            c.roundRect(x, y, box_w, 36, 12, stroke=0, fill=1)
+            c.setFillColor(colors.HexColor("#030712"))
+            c.setFont("Planif-Bold", 8.5)
+            c.drawCentredString(x + box_w / 2, y + 14, label)
+            if i < len(items) - 1:
+                ax = x + box_w + 2
+                c.setStrokeColor(colors.white)
+                c.setLineWidth(1.2)
+                c.line(ax, y + 18, ax + gap - 4, y + 18)
+                c.line(ax + gap - 4, y + 18, ax + gap - 8, y + 21)
+                c.line(ax + gap - 4, y + 18, ax + gap - 8, y + 15)
+        c.setFillColor(colors.white)
+        c.setFont("Planif-Bold", 11)
+        c.drawString(16, self.height - 26, "Articulation budgétaire")
+        c.setFont("Planif", 7.8)
+        c.setFillColor(colors.HexColor("#D1D5DB"))
+        c.drawString(16, 18, "Objectif : transformer les prévisions d’activité en flux financiers et en trésorerie.")
+        c.restoreState()
+
+
+class VarianceBarsFlowable(Flowable):
+    def __init__(self, width=TEXT_WIDTH, height=4.2 * cm):
+        super().__init__()
+        self.width = width
+        self.height = height
+
+    def wrap(self, availWidth, availHeight):
+        return self.width, self.height
+
+    def draw(self):
+        c = self.canv
+        c.saveState()
+        c.setFillColor(colors.HexColor("#030712"))
+        c.roundRect(0, 0, self.width, self.height, 18, stroke=0, fill=1)
+        c.setFillColor(colors.white)
+        c.setFont("Planif-Bold", 11)
+        c.drawString(16, self.height - 25, "Lecture des écarts")
+        bars = [
+            ("Écart sur prix", 270, "#D72638"),
+            ("Écart sur quantité", -80, "#D7FF4F"),
+            ("Écart global", 190, "#A7A5FF"),
+        ]
+        max_abs = 300
+        axis_x = self.width * 0.52
+        top = self.height - 52
+        c.setStrokeColor(colors.HexColor("#6B7280"))
+        c.line(axis_x, 24, axis_x, top + 8)
+        for i, (label, value, color) in enumerate(bars):
+            y = top - i * 31
+            c.setFillColor(colors.HexColor("#D1D5DB"))
+            c.setFont("Planif-Bold", 8.2)
+            c.drawRightString(axis_x - 12, y - 2, label)
+            bar_w = abs(value) / max_abs * (self.width * 0.34)
+            if value >= 0:
+                x = axis_x
+            else:
+                x = axis_x - bar_w
+            c.setFillColor(colors.HexColor(color))
+            c.roundRect(x, y - 7, bar_w, 14, 7, stroke=0, fill=1)
+            c.setFillColor(colors.white)
+            c.drawString(axis_x + (bar_w if value >= 0 else 8) + 8, y - 3, f"{value:+} €")
+        c.restoreState()
+
+
+class BcgMatrixFlowable(Flowable):
+    def __init__(self, width=TEXT_WIDTH, height=9.2 * cm):
+        super().__init__()
+        self.width = width
+        self.height = height
+
+    def wrap(self, availWidth, availHeight):
+        return self.width, self.height
+
+    def draw(self):
+        c = self.canv
+        c.saveState()
+        c.setFillColor(colors.HexColor("#030712"))
+        c.roundRect(0, 0, self.width, self.height, 22, stroke=0, fill=1)
+        pad = 28
+        plot_x = pad + 20
+        plot_y = 32
+        plot_w = self.width - 2 * pad - 20
+        plot_h = self.height - 62
+        mid_x = plot_x + plot_w * 0.5
+        mid_y = plot_y + plot_h * 0.48
+        c.setStrokeColor(colors.HexColor("#6B7280"))
+        c.setLineWidth(0.8)
+        c.line(plot_x, mid_y, plot_x + plot_w, mid_y)
+        c.line(mid_x, plot_y, mid_x, plot_y + plot_h)
+
+        labels = [
+            ("Vedette", plot_x + 8, plot_y + plot_h - 30, "#D7FF4F"),
+            ("Dilemme", mid_x + 22, plot_y + plot_h - 30, "#A7A5FF"),
+            ("Vache à lait", plot_x + 8, plot_y + 12, "#D8F3FF"),
+            ("Poid mort", mid_x + 22, plot_y + 12, "#FFFFFF"),
+        ]
+        for text, x, y, color in labels:
+            c.setFillColor(colors.HexColor(color))
+            c.roundRect(x, y, 80, 22, 11, stroke=0, fill=1)
+            c.setFillColor(colors.HexColor("#030712"))
+            c.setFont("Planif-Bold", 8)
+            c.drawCentredString(x + 40, y + 7, text)
+
+        c.setFillColor(colors.HexColor("#D1D5DB"))
+        c.setFont("Planif-Bold", 8)
+        c.drawString(plot_x, self.height - 22, "Matrice BCG — seuil TC : 10 % | seuil PMR : 1")
+        c.drawCentredString(plot_x + plot_w / 2, 10, "PART DE MARCHÉ RELATIVE")
+        c.saveState()
+        c.translate(12, plot_y + plot_h / 2)
+        c.rotate(90)
+        c.drawCentredString(0, 0, "TAUX DE CROISSANCE")
+        c.restoreState()
+
+        bubbles = [
+            ("DAS 1", "PMR 1,23 | TC 15 %", plot_x + plot_w * 0.33, mid_y + plot_h * 0.18, 37, "#D7FF4F"),
+            ("DAS 3", "PMR 0,75 | TC 40 %", mid_x + plot_w * 0.23, mid_y + plot_h * 0.33, 31, "#A7A5FF"),
+            ("DAS 2", "PMR 0,74 | TC 5 %", mid_x + plot_w * 0.22, plot_y + plot_h * 0.18, 34, "#FFFFFF"),
+        ]
+        for title, detail, x, y, r, color in bubbles:
+            c.setFillColor(colors.HexColor(color))
+            c.circle(x, y, r, stroke=0, fill=1)
+            c.setFillColor(colors.HexColor("#030712"))
+            c.setFont("Planif-Bold", 14)
+            c.drawCentredString(x, y + 6, title)
+            c.setFont("Planif-Bold", 6.8)
+            c.drawCentredString(x, y - 10, detail)
+        c.restoreState()
+
+
+class MpmNetworkFlowable(Flowable):
+    def __init__(self, width=TEXT_WIDTH, height=8.4 * cm):
+        super().__init__()
+        self.width = width
+        self.height = height
+
+    def wrap(self, availWidth, availHeight):
+        return self.width, self.height
+
+    def draw_node(self, c, x, y, w, h, title, subtitle, early, late, color):
+        c.setFillColor(colors.HexColor("#10131A"))
+        c.setStrokeColor(colors.HexColor(color))
+        c.setLineWidth(1.3)
+        c.roundRect(x, y, w, h, 10, stroke=1, fill=1)
+        c.setFillColor(colors.white)
+        c.setFont("Planif-Bold", 12 if len(title) == 1 else 8.5)
+        c.drawCentredString(x + w / 2, y + h - 18, title)
+        if subtitle:
+            c.setFont("Planif-Bold", 5.7)
+            for i, line in enumerate(subtitle):
+                c.drawCentredString(x + w / 2, y + h - 35 - i * 8, line)
+        c.setStrokeColor(colors.HexColor("#6B7280"))
+        c.line(x, y + 28, x + w, y + 28)
+        c.line(x + w / 2, y, x + w / 2, y + 28)
+        c.setFont("Planif-Bold", 6.5)
+        c.drawCentredString(x + w * 0.25, y + 18, "DTO")
+        c.drawCentredString(x + w * 0.75, y + 18, "DTA")
+        c.setFont("Planif-Bold", 9.5)
+        c.drawCentredString(x + w * 0.25, y + 6, early)
+        c.drawCentredString(x + w * 0.75, y + 6, late)
+
+    def arrow(self, c, x1, y1, x2, y2, label=None):
+        c.setStrokeColor(colors.white)
+        c.setFillColor(colors.white)
+        c.setLineWidth(1.2)
+        c.line(x1, y1, x2, y2)
+        angle = math.atan2(y2 - y1, x2 - x1)
+        size = 5
+        p1 = (x2, y2)
+        p2 = (x2 - size * math.cos(angle - 0.45), y2 - size * math.sin(angle - 0.45))
+        p3 = (x2 - size * math.cos(angle + 0.45), y2 - size * math.sin(angle + 0.45))
+        c.line(*p1, *p2)
+        c.line(*p1, *p3)
+        if label:
+            c.setFont("Planif-Bold", 6.8)
+            c.drawCentredString((x1 + x2) / 2, (y1 + y2) / 2 + 5, label)
+
+    def draw(self):
+        c = self.canv
+        c.saveState()
+        c.setFillColor(colors.HexColor("#030712"))
+        c.roundRect(0, 0, self.width, self.height, 20, stroke=0, fill=1)
+        nodes = {
+            "Début": (18, 82, 50, 54, "DÉBUT", None, "0", "0", "#9CA3AF"),
+            "A": (92, 70, 64, 82, "A", ["Analyser", "le besoin"], "0", "0", "#60A5FA"),
+            "B": (190, 145, 76, 88, "B", ["Rédiger le cahier", "des charges"], "2", "2", "#7ED957"),
+            "C": (190, 18, 76, 84, "C", ["Choisir les outils"], "2", "3", "#D6A400"),
+            "D": (312, 80, 68, 82, "D", ["Construire", "le prototype"], "5", "5", "#C084FC"),
+            "E": (405, 80, 68, 82, "E", ["Tester", "la solution"], "9", "9", "#F87171"),
+            "F": (492, 80, 68, 82, "F", ["Présenter", "le projet"], "11", "11", "#5EEAD4"),
+            "Fin": (570, 82, 50, 54, "FIN", None, "12", "12", "#9CA3AF"),
+        }
+        sx = self.width / 640
+        sy = self.height / 250
+        c.scale(sx, sy)
+        self.arrow(c, 68, 109, 92, 109, "0 j")
+        self.arrow(c, 156, 132, 190, 189, "2 j")
+        self.arrow(c, 156, 91, 190, 60, "2 j")
+        self.arrow(c, 266, 189, 312, 130, "3 j")
+        self.arrow(c, 266, 60, 312, 112, "2 j")
+        self.arrow(c, 380, 121, 405, 121, "4 j")
+        self.arrow(c, 473, 121, 492, 121, "2 j")
+        self.arrow(c, 560, 121, 570, 109, "1 j")
+        for data in nodes.values():
+            self.draw_node(c, *data)
+        c.setFillColor(colors.HexColor("#D7FF4F"))
+        c.roundRect(18, 12, 150, 22, 11, stroke=0, fill=1)
+        c.setFillColor(colors.HexColor("#030712"))
+        c.setFont("Planif-Bold", 7.5)
+        c.drawCentredString(93, 20, "Chemin critique : A → B → D → E → F")
+        c.restoreState()
 
 
 def diagnostic_pdf():
@@ -276,6 +526,7 @@ def diagnostic_pdf():
             ["Rayon R", "√(2,064 / π) = 0,81 cm", "√(1,374 / π) = 0,66 cm", "√(0,785 / π) = 0,50 cm"],
             ["Diamètre D", "2 × 0,81 = 1,62 cm", "2 × 0,66 = 1,32 cm", "2 × 0,50 = 1,00 cm"],
         ], widths=[2.7*cm, 4.8*cm, 4.8*cm, 4.8*cm], dark=True)],
+        [Spacer(1, 8), BcgMatrixFlowable(), Spacer(1, 8)],
         [callout("Matrice BCG — lecture finale", [
             "DAS 1 : Vedette — PMR = 1,23 ; TC = 15 %.",
             "DAS 3 : Dilemme — PMR = 0,75 ; TC = 40 %.",
@@ -316,6 +567,7 @@ def budgets_pdf():
             "Établir les budgets d’encaissements et de décaissements.",
             "Calculer la trésorerie finale.",
         ]]],
+        [BudgetFlowFlowable(), Spacer(1, 8)],
         [section("Formules"), *[bullet(x) for x in [
             "TVA à décaisser = TVA collectée − TVA déductible.",
             "Total encaissements = créances clients du bilan + encaissements sur ventes.",
@@ -387,6 +639,7 @@ def ecarts_pdf():
             "Écart sur quantité = (540 − 550) × 8 = −80 €, favorable.",
             "Vérification : 270 + (−80) = 190 €.",
         ]]],
+        [VarianceBarsFlowable(), Spacer(1, 8)],
         [para_table([
             ["Élément", "Quantité réelle", "Prix réel", "Coût réel", "Quantité prévue ajustée", "Prix prévu", "Coût prévu", "Écart"],
             ["Matière première", "540 kg", "8,50 €", "4 590 €", "550 kg", "8 €", "4 400 €", "+190 €"],
@@ -443,6 +696,7 @@ def mpm_pdf():
             ["F", "11", "11", "0", "Critique"],
             ["Fin", "12", "12", "0", "Critique"],
         ], widths=[3*cm, 3*cm, 3*cm, 2.5*cm, 4*cm])],
+        [Spacer(1, 8), MpmNetworkFlowable(), Spacer(1, 8)],
         [callout("Réseau final", [
             "Début → A → B → D → E → F → Fin",
             "Branche alternative : A → C → D.",

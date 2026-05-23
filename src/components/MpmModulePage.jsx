@@ -528,7 +528,7 @@ function MpmModulePage({ onBackHome, onChoosePremium }) {
             </h2>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6">
             <article className="rounded-[2rem] border border-black/10 bg-white p-6 shadow-[0_22px_70px_rgba(3,7,18,0.08)]">
               <h3 className="text-2xl font-black text-[#030712]">Énoncé</h3>
               <p className="mt-3 leading-7 text-[#6B7280]">
