@@ -437,20 +437,31 @@ function CourseModulePage({ module, onBackHome }) {
                 background: `linear-gradient(145deg, ${module.darkAccent}, #030712 58%, ${module.accent})`,
               }}
             >
-              <div className="flex h-full flex-col justify-between rounded-[1.25rem] border border-white/15 bg-black/25 p-5 text-white backdrop-blur">
-                <span className="w-fit rounded-full bg-white/10 px-3 py-1 text-xs font-black">
-                  Vidéo bientôt intégrée
-                </span>
-                <div className="grid place-items-center">
-                  <div className="grid size-20 place-items-center rounded-full bg-white text-[#030712] shadow-2xl">
-                    <Play size={30} fill="currentColor" />
+              {module.videoSrc ? (
+                <video
+                  className="h-full w-full rounded-[1.25rem] bg-black object-cover shadow-inner"
+                  controls
+                  controlsList="nodownload"
+                >
+                  <source src={module.videoSrc} type="video/mp4" />
+                  Votre navigateur ne supporte pas la lecture de vidéos.
+                </video>
+              ) : (
+                <div className="flex h-full flex-col justify-between rounded-[1.25rem] border border-white/15 bg-black/25 p-5 text-white backdrop-blur">
+                  <span className="w-fit rounded-full bg-white/10 px-3 py-1 text-xs font-black">
+                    Vidéo bientôt intégrée
+                  </span>
+                  <div className="grid place-items-center">
+                    <div className="grid size-20 place-items-center rounded-full bg-white text-[#030712] shadow-2xl">
+                      <Play size={30} fill="currentColor" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white/60">Durée prévue : 3 à 4 minutes</p>
+                    <h2 className="mt-1 text-2xl font-black">{module.videoTitle}</h2>
                   </div>
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-white/60">Durée prévue : 3 à 4 minutes</p>
-                  <h2 className="mt-1 text-2xl font-black">{module.videoTitle}</h2>
-                </div>
-              </div>
+              )}
             </div>
           </div>
           <div>
@@ -459,7 +470,7 @@ function CourseModulePage({ module, onBackHome }) {
               Mini-vidéo
             </span>
             <h2 className="mt-6 text-balance text-4xl font-black leading-tight tracking-tight text-[#030712] sm:text-5xl">
-              Un emplacement prêt pour la vidéo.
+              {module.videoSrc ? "Explication en vidéo." : "Un emplacement prêt pour la vidéo."}
             </h2>
             <p className="mt-5 text-lg leading-8 text-[#6B7280]">{module.videoDescription}</p>
           </div>
